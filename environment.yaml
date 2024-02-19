@@ -1,4 +1,4 @@
-name: bioinformatics_workflow
+name: patomatic_pipe
 channels:
   - bioconda
   - conda-forge
