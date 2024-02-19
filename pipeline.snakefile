@@ -1,3 +1,30 @@
+# Define the path to your reads directory in the config.yaml file
+configfile: "config.yaml"
+
+# Python script to list samples
+SAMPLE_LISTING_SCRIPT = "list_samples.py"
+
+# Dynamic discovery of sample names based on FASTQ files in the specified directory
+SAMPLES, = glob_wildcards(config["reads_dir"] + "/{sample}_R1.fastq.gz")
+
+rule all:
+    input:
+        fastqc_reports = expand("fastqc/{sample}_fastqc.html", sample=SAMPLES),
+        multiqc_report = "multiqc/multiqc_report.html",
+        trimmed_reads = expand("trimmed/{sample}_R1_trimmed.fq.gz", sample=SAMPLES),
+        aligned_bam = expand("alignment/{sample}_sorted.bam", sample=SAMPLES),
+        bam_stats = expand("qc/{sample}_bam_stats.txt", sample=SAMPLES),
+        vcf_file = "vcf/filtered_calls.vcf.gz",
+        consensus_sequence = "consensus/consensus_sequence.fasta",
+        quast_report = "consensus/quast_report/report.txt",
+        prokka_annotation = expand("prokka/{sample}", sample=SAMPLES)
+
+rule list_samples:
+    output:
+        "samples.txt"
+    shell:
+        "python {SAMPLE_LISTING_SCRIPT} {config[reads_dir]} > {output}"
+        
 rule fastqc:
     input:
         lambda wildcards: f"{config['reads_dir']}/{wildcards.sample}_R1.fastq.gz"
