@@ -54,3 +54,12 @@ With the Conda environment activated and the configuration set, run the workflow
 ```bash
 snakemake --cores all
 ```
+
+Output
+The workflow will generate the following outputs in the designated directories:
+
+Quality control reports in fastqc/ and multiqc/
+Trimmed reads in trimmed/
+Aligned reads and statistics in alignment/ and qc/
+Variant calling and consensus sequences in vcf/ and consensus/
+Annotation results in prokka/
