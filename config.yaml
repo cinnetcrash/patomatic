@@ -1,0 +1,2 @@
+samples: ["sample1", "sample2"]  # List your samples here
+reference: "path/to/reference_genome.fasta" # Path to your reference genome
