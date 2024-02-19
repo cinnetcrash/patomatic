@@ -1,0 +1,21 @@
+name: bioinformatics_workflow
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - fastqc=0.11.9
+  - multiqc=1.9
+  - trimmomatic=0.39
+  - bwa=0.7.17
+  - samtools=1.10
+  - bcftools=1.10
+  - qualimap=2.2.2d
+  - quast=5.0.2
+  - prokka=1.14.6
+  - snakemake=5.32.0
+  - blast=2.10.1
+  - python=3.8
+  - pip:
+    - biopython==1.78
+
