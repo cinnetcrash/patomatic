@@ -23,7 +23,7 @@ rule fastqc:
     conda:
         "envs/environment.yaml" 
     container:
-        "quay.io/biocontainers/fastqc:0.11.9--0"
+        "staphb/fastqc:latest"
     shell:
         "fastqc {input} --outdir fastqc/"
 
@@ -32,6 +32,8 @@ rule multiqc:
         expand("fastqc/{sample}_R1_fastqc.html", sample=SAMPLES)
     output:
         "multiqc/multiqc_report.html"
+    container:
+        "staphb/multiqc:latest"
     conda:
         "envs/environment.yaml"  # Path to a specific Conda environment file for MultiQC
     shell:
@@ -44,6 +46,8 @@ rule trim_reads:
     output:
         trimmed_fwd="trimmed/{sample}_R1_trimmed.fq.gz",
         trimmed_rev="trimmed/{sample}_R2_trimmed.fq.gz"
+    container:
+        "staphb/trimmomatic:latest"
     conda:
         "envs/environment.yaml"  # Path to a specific Conda environment file for Trimmomatic
     shell:
@@ -55,6 +59,8 @@ rule align_reads:
         rev="trimmed/{sample}_R2_trimmed.fq.gz"
     output:
         bam="alignment/{sample}_sorted.bam"
+    container:
+        "staphb/bwa:latest"
     conda:
         "envs/environment.yaml"  # Path to a specific Conda environment file for BWA
     shell:
@@ -68,6 +74,8 @@ rule bam_stats:
         "alignment/{sample}_sorted.bam"
     output:
         "qc/{sample}_bam_stats.txt"
+    container:
+        "staphb/samtools:latest"
     conda:
         "envs/environment.yaml"  # Path to a specific Conda environment file for Samtools
     shell:
@@ -78,6 +86,8 @@ rule call_variants:
         bam=expand("alignment/{sample}_sorted.bam", sample=SAMPLES)
     output:
         vcf="vcf/filtered_calls.vcf.gz"
+    container:
+        "staphb/bcftools:latest"
     conda:
         "envs/environment.yaml"  # Path to a specific Conda environment file for bcftools
     shell:
@@ -91,6 +101,8 @@ rule generate_consensus:
         vcf="vcf/filtered_calls.vcf.gz"
     output:
         fasta="consensus/consensus_sequence.fasta"
+    container:
+        "staphb/bcftools:latest"
     conda:
         "envs/environment.yaml"  # Use the same Conda environment as for calling variants
     shell:
@@ -101,6 +113,8 @@ rule run_quast:
         fasta="consensus/consensus_sequence.fasta"
     output:
         report="consensus/quast_report/report.txt"
+    container:
+        "staphb/quast:latest"
     conda:
         "envs/environment.yaml"  # Path to a specific Conda environment file for QUAST
     shell:
@@ -111,6 +125,8 @@ rule run_prokka:
         fasta="consensus/consensus_sequence.fasta"
     output:
         touch="prokka/{sample}/prokka_done.txt"
+    container:
+        "staphb/prokka:latest"
     conda:
         "envs/environment.yaml"  # Path to a specific Conda environment file for Prokka
     shell:

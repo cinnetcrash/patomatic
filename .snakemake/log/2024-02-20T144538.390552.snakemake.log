@@ -1,7 +1,0 @@
-Building DAG of jobs...
-MissingInputException in line 10 of /home/cinnet/Desktop/Project_Patomatic/snakefile:
-Missing input files for rule all:
-fastqc/E16700_S2_fastqc.html
-prokka/E16699_S1
-fastqc/E16699_S1_fastqc.html
-prokka/E16700_S2

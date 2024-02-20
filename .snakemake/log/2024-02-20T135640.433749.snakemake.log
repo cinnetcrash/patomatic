@@ -1,3 +1,0 @@
-SyntaxError:
-Only input files can be specified as functions
-  File "/home/cinnet/Desktop/Project_Patomatic/snakefile", line 108, in <module>
