@@ -1,0 +1,2 @@
+SyntaxError in line 9 of /home/cinnet/Desktop/Project_Patomatic/snakefile:
+Expected name or colon after rule or checkpoint keyword. (snakefile, line 9)
