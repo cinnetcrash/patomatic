@@ -2,14 +2,13 @@
 reads_dir: "/home/cinnet/Desktop/Project_Patomatic/data"
 
 # Path to your reference genome
-reference: "ref/sars-cov-2_genome.fasta"
+reference: "/home/cinnet/Desktop/Project_Patomatic/ref/sars-cov-2_genome.fasta"
 
 # Directory for output results
 output_dir: "/home/cinnet/Desktop/Project_Patomatic/results"
 
 # Optional: Specify any other parameters that might be needed for various tools
 trimming:
-  adapter_path: "path/to/adapters.fa"
   leading: 3
   trailing: 3
   slidingwindow: "4:15"

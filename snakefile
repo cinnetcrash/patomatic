@@ -1,137 +1,110 @@
 configfile: "config.yaml"
 
-SAMPLES, = glob_wildcards(config["reads_dir"] + "/{sample}_R1.fastq.gz")
+# Function to dynamically get sample names based on the fastq files present in reads_dir
+def get_samples():
+    import os
+    samples = set()
+    for filename in os.listdir(config['reads_dir']):
+        if filename.endswith("_R1.fastq.gz") or filename.endswith("_R1.fastq"):
+            sample_name = filename.split("_R1")[0]
+            samples.add(sample_name)
+    return list(samples)
 
+# Rule all to specify final targets
 rule all:
     input:
-        fastqc_reports = expand("fastqc/{sample}_R1_fastqc.html", sample=SAMPLES),
-        multiqc_report = "multiqc/multiqc_report.html",
-        trimmed_reads = expand("trimmed/{sample}_R1_trimmed.fq.gz", sample=SAMPLES),
-        aligned_bam = expand("alignment/{sample}_sorted.bam", sample=SAMPLES),
-        bam_stats = expand("qc/{sample}_bam_stats.txt", sample=SAMPLES),
-        vcf_file = "vcf/filtered_calls.vcf.gz",
-        consensus_sequence = "consensus/consensus_sequence.fasta",
-        quast_report = "consensus/quast_report/report.txt",
-        prokka_annotation = expand("prokka/{sample}/prokka_done.txt", sample=SAMPLES)
+        expand("{output_dir}/fastqc/{sample}_R1_fastqc.html", output_dir=config["output_dir"], sample=get_samples()),
+        expand("{output_dir}/multiqc/multiqc_report.html", output_dir=config["output_dir"]),
+        expand("{output_dir}/trimmed/{sample}_R1_trimmed.fq.gz", output_dir=config["output_dir"], sample=get_samples()),
+        expand("{output_dir}/alignment/{sample}_sorted.bam", output_dir=config["output_dir"], sample=get_samples()),
+        expand("{output_dir}/qc/{sample}_bam_stats.txt", output_dir=config["output_dir"], sample=get_samples()),
+        expand("{output_dir}/vcf/filtered_calls.vcf.gz", output_dir=config["output_dir"]),
+        expand("{output_dir}/consensus/consensus_sequence.fasta", output_dir=config["output_dir"]),
+        expand("{output_dir}/consensus/quast_report/report.txt", output_dir=config["output_dir"]),
+        expand("{output_dir}/prokka/{sample}/prokka_done.txt", output_dir=config["output_dir"], sample=get_samples())
 
+# Example rules adjusted for dynamic sample identification
+# FastQC
 rule fastqc:
     input:
         lambda wildcards: f"{config['reads_dir']}/{wildcards.sample}_R1.fastq.gz"
     output:
-        html="fastqc/{sample}_R1_fastqc.html",
-        zip="fastqc/{sample}_R1_fastqc.zip"
-    conda:
-        "envs/environment.yaml" 
-    container:
-        "staphb/fastqc:latest"
+        html="{output_dir}/fastqc/{sample}_R1_fastqc.html",
+        zip="{output_dir}/fastqc/{sample}_R1_fastqc.zip"
     shell:
-        "fastqc {input} --outdir fastqc/"
+        "fastqc {input} --outdir {output.html.rsplit('/', 1)[0]}"
 
+# MultiQC
 rule multiqc:
     input:
-        expand("fastqc/{sample}_R1_fastqc.html", sample=SAMPLES)
+        expand("{output_dir}/fastqc/{sample}_R1_fastqc.html", output_dir=config["output_dir"], sample=get_samples())
     output:
-        "multiqc/multiqc_report.html"
-    container:
-        "staphb/multiqc:latest"
-    conda:
-        "envs/environment.yaml"  # Path to a specific Conda environment file for MultiQC
+        multiqc_report="{output_dir}/multiqc/multiqc_report.html"
     shell:
-        "multiqc fastqc/ -o multiqc/"
+        "multiqc {input[0].rsplit('/', 2)[0]} -o {output.multiqc_report.rsplit('/', 1)[0]}"
 
+# Trimmomatic for read trimming
 rule trim_reads:
     input:
         fwd=lambda wildcards: f"{config['reads_dir']}/{wildcards.sample}_R1.fastq.gz",
         rev=lambda wildcards: f"{config['reads_dir']}/{wildcards.sample}_R2.fastq.gz"
     output:
-        trimmed_fwd="trimmed/{sample}_R1_trimmed.fq.gz",
-        trimmed_rev="trimmed/{sample}_R2_trimmed.fq.gz"
-    container:
-        "staphb/trimmomatic:latest"
-    conda:
-        "envs/environment.yaml"  # Path to a specific Conda environment file for Trimmomatic
+        trimmed_fwd="{output_dir}/trimmed/{wildcards.sample}_R1_trimmed.fq.gz",
+        trimmed_rev="{output_dir}/trimmed/{wildcards.sample}_R2_trimmed.fq.gz"
     shell:
-        "trimmomatic PE {input.fwd} {input.rev} {output.trimmed_fwd} /dev/null {output.trimmed_rev} /dev/null ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:3 TRAILING:3 SLIDINGWINDOW:4:15 MINLEN:36"
+        "trimmomatic PE {input.fwd} {input.rev} {output.trimmed_fwd} /dev/null {output.trimmed_rev} /dev/null ILLUMINACLIP:adapters.fasta:2:30:10 LEADING:{config['trimming']['leading']} TRAILING:{config['trimming']['trailing']} SLIDINGWINDOW:{config['trimming']['slidingwindow']} MINLEN:{config['trimming']['minlen']}"
 
+# BWA for alignment
 rule align_reads:
     input:
-        fwd="trimmed/{sample}_R1_trimmed.fq.gz",
-        rev="trimmed/{sample}_R2_trimmed.fq.gz"
+        fwd="{output_dir}/trimmed/{wildcards.sample}_R1_trimmed.fq.gz",
+        rev="{output_dir}/trimmed/{wildcards.sample}_R2_trimmed.fq.gz"
     output:
-        bam="alignment/{sample}_sorted.bam"
-    container:
-        "staphb/bwa:latest"
-    conda:
-        "envs/environment.yaml"  # Path to a specific Conda environment file for BWA
+        bam="{output_dir}/alignment/{wildcards.sample}_sorted.bam"
     shell:
-        """
-        bwa mem -t 4 {config['reference']} {input.fwd} {input.rev} | samtools sort -o {output.bam}
-        samtools index {output.bam}
-        """
+        "bwa mem -t {config['alignment']['threads']} {config['reference']} {input.fwd} {input.rev} | samtools sort -o {output.bam} && samtools index {output.bam}"
 
+# Samtools for generating BAM statistics
 rule bam_stats:
     input:
-        "alignment/{sample}_sorted.bam"
+        "{output_dir}/alignment/{wildcards.sample}_sorted.bam"
     output:
-        "qc/{sample}_bam_stats.txt"
-    container:
-        "staphb/samtools:latest"
-    conda:
-        "envs/environment.yaml"  # Path to a specific Conda environment file for Samtools
+        "{output_dir}/qc/{wildcards.sample}_bam_stats.txt"
     shell:
         "samtools stats {input} > {output}"
 
+# BCFtools for variant calling
 rule call_variants:
     input:
-        bam=expand("alignment/{sample}_sorted.bam", sample=SAMPLES)
+        bam=expand("{output_dir}/alignment/{sample}_sorted.bam", output_dir=config["output_dir"], sample=get_samples())
     output:
-        vcf="vcf/filtered_calls.vcf.gz"
-    container:
-        "staphb/bcftools:latest"
-    conda:
-        "envs/environment.yaml"  # Path to a specific Conda environment file for bcftools
+        "{output_dir}/vcf/filtered_calls.vcf.gz"
     shell:
-        """
-        bcftools mpileup -Ou -f {config['reference']} {input.bam} | bcftools call -mv -Oz -o vcf/calls.vcf.gz
-        bcftools filter -s LowQual -e '%QUAL<20 or DP<10' vcf/calls.vcf.gz > {output.vcf}
-        """
+        "bcftools mpileup -Ou -f {config['reference']} {input.bam} | bcftools call -mv -Oz -o {output} && bcftools filter -s LowQual -e '%QUAL<20 or DP<10' {output} -Oz -o {output}"
 
+# BCFtools for generating a consensus sequence
 rule generate_consensus:
     input:
-        vcf="vcf/filtered_calls.vcf.gz"
+        "{output_dir}/vcf/filtered_calls.vcf.gz"
     output:
-        fasta="consensus/consensus_sequence.fasta"
-    container:
-        "staphb/bcftools:latest"
-    conda:
-        "envs/environment.yaml"  # Use the same Conda environment as for calling variants
+        "{output_dir}/consensus/consensus_sequence.fasta"
     shell:
-        "bcftools consensus -f {config['reference']} {input.vcf} > {output.fasta}"
+        "bcftools consensus -f {config['reference']} {input} > {output}"
 
+# QUAST for quality assessment of the consensus sequence
 rule run_quast:
     input:
-        fasta="consensus/consensus_sequence.fasta"
+        "{output_dir}/consensus/consensus_sequence.fasta"
     output:
-        report="consensus/quast_report/report.txt"
-    container:
-        "staphb/quast:latest"
-    conda:
-        "envs/environment.yaml"  # Path to a specific Conda environment file for QUAST
+        report="{output_dir}/consensus/quast_report/report.txt"
     shell:
-        "quast.py {input.fasta} -o consensus/quast_report"
+        "quast {input} -o {output.report.rsplit('/', 1)[0]}"
 
+# Prokka for annotation
 rule run_prokka:
     input:
-        fasta="consensus/consensus_sequence.fasta"
+        "{output_dir}/consensus/consensus_sequence.fasta"
     output:
-        touch="prokka/{sample}/prokka_done.txt"
-    container:
-        "staphb/prokka:latest"
-    conda:
-        "envs/environment.yaml"  # Path to a specific Conda environment file for Prokka
+        touch="{output_dir}/prokka/{wildcards.sample}/prokka_done.txt"
     shell:
-        """
-        mkdir -p prokka/{wildcards.sample}
-        prokka {input.fasta} --outdir prokka/{wildcards.sample} --prefix {wildcards.sample}
-        touch {output.touch}
-        """
+        "mkdir -p {output.touch.rsplit('/', 1)[0]} && prokka {input} --outdir {output.touch.rsplit('/', 1)[0]} --prefix {wildcards.sample}"
